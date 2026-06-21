@@ -1,0 +1,173 @@
+<?xml version="1.0"?>
+<robot name="bee1" xmlns:xacro="http://www.ros.org/wiki/xacro">
+
+  <xacro:property name="govde_uzunluk" value="2.740"/>   <xacro:property name="govde_genislik" value="1.060"/>
+  <xacro:property name="govde_yukseklik" value="1.785"/>
+  <xacro:property name="dingil_mesafesi" value="1.860"/>
+  <xacro:property name="govde_z_offset" value="0.45"/>   <xacro:property name="tekerlek_yaricap" value="0.25"/>
+  <xacro:property name="tekerlek_genislik" value="0.18"/>
+
+  <material name="beyaz"><color rgba="0.95 0.95 0.95 1"/></material>
+  <material name="siyah"><color rgba="0.05 0.05 0.05 1"/></material>
+  <material name="kirmizi"><color rgba="0.8 0 0 1"/></material>
+
+  <link name="base_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${govde_uzunluk} ${govde_genislik} ${govde_yukseklik}"/>
+      </geometry>
+      <material name="beyaz"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${govde_uzunluk} ${govde_genislik} ${govde_yukseklik}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="760"/>  <inertia ixx="200" ixy="0" ixz="0" iyy="400" iyz="0" izz="400"/>
+    </inertial>
+  </link>
+
+  <link name="base_footprint"/>
+  <joint name="base_footprint_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="base_link"/>
+    <origin xyz="0 0 ${govde_z_offset + govde_yukseklik/2}" rpy="0 0 0"/>
+  </joint>
+
+  <xacro:macro name="tekerlek" params="ad x_ofset y_ofset">
+    <link name="${ad}">
+      <visual>
+        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <geometry>
+          <cylinder radius="${tekerlek_yaricap}" length="${tekerlek_genislik}"/>
+        </geometry>
+        <material name="siyah"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="1.5708 0 0"/>
+        <geometry>
+          <cylinder radius="${tekerlek_yaricap}" length="${tekerlek_genislik}"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <mass value="15"/>
+        <inertia ixx="0.5" ixy="0" ixz="0" iyy="0.5" iyz="0" izz="0.5"/>
+      </inertial>
+    </link>
+    <joint name="${ad}_joint" type="continuous">
+      <parent link="base_footprint"/>
+      <child link="${ad}"/>
+      <origin xyz="${x_ofset} ${y_ofset} ${tekerlek_yaricap}" rpy="0 0 0"/>
+      <axis xyz="0 1 0"/>
+    </joint>
+  </xacro:macro>
+
+  <xacro:tekerlek ad="tekerlek_on_sol"   x_ofset="${dingil_mesafesi/2}"  y_ofset="${govde_genislik/2 + 0.08}"/>
+  <xacro:tekerlek ad="tekerlek_on_sag"   x_ofset="${dingil_mesafesi/2}"  y_ofset="-${govde_genislik/2 + 0.08}"/>
+  <xacro:tekerlek ad="tekerlek_arka_sol" x_ofset="-${dingil_mesafesi/2}" y_ofset="${govde_genislik/2 + 0.08}"/>
+  <xacro:tekerlek ad="tekerlek_arka_sag" x_ofset="-${dingil_mesafesi/2}" y_ofset="-${govde_genislik/2 + 0.08}"/>
+
+  <link name="lidar_link">
+    <visual>
+      <geometry><cylinder radius="0.05" length="0.07"/></geometry>
+      <material name="siyah"/>
+    </visual>
+  </link>
+  <joint name="lidar_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="lidar_link"/>
+    <origin xyz="-0.177 0 ${govde_yukseklik/2 + 0.1}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="kamera_sag_link">
+    <visual>
+      <geometry><box size="0.05 0.05 0.05"/></geometry>
+      <material name="kirmizi"/>
+    </visual>
+  </link>
+  <joint name="kamera_sag_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="kamera_sag_link"/>
+    <origin xyz="0.620 -0.060 ${govde_yukseklik/2}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="kamera_sol_link">
+    <visual>
+      <geometry><box size="0.05 0.05 0.05"/></geometry>
+      <material name="kirmizi"/>
+    </visual>
+  </link>
+  <joint name="kamera_sol_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="kamera_sol_link"/>
+    <origin xyz="0.685 0.060 ${govde_yukseklik/2}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="gps_imu_link">
+    <visual>
+      <geometry><box size="0.04 0.04 0.02"/></geometry>
+      <material name="siyah"/>
+    </visual>
+  </link>
+  <joint name="gps_imu_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="gps_imu_link"/>
+    <origin xyz="1.440 0 ${govde_yukseklik/2 + 0.1}" rpy="0 0 0"/>
+  </joint>
+
+  <gazebo>
+    <plugin name="diff_drive" filename="libgazebo_ros_diff_drive.so">
+      <ros>
+        <namespace>/</namespace>
+      </ros>
+      <left_joint>tekerlek_arka_sol_joint</left_joint>
+      <right_joint>tekerlek_arka_sag_joint</right_joint>
+      <wheel_separation>${govde_genislik + 0.16}</wheel_separation>
+      <wheel_diameter>${tekerlek_yaricap * 2}</wheel_diameter>
+      <max_wheel_torque>5000</max_wheel_torque>
+      <max_wheel_acceleration>2.5</max_wheel_acceleration>
+      <command_topic>cmd_vel</command_topic>
+      <odometry_topic>odom</odometry_topic>
+      <odometry_frame>odom</odometry_frame>
+      <robot_base_frame>base_footprint</robot_base_frame>
+      <publish_odom>true</publish_odom>
+      <publish_odom_tf>true</publish_odom_tf>
+      <publish_wheel_tf>true</publish_wheel_tf>
+    </plugin>
+  </gazebo>
+
+  <gazebo reference="lidar_link">
+    <sensor name="lidar" type="ray">
+      <pose>0 0 0 0 0 0</pose>
+      <visualize>true</visualize>
+      <update_rate>10</update_rate>
+      <ray>
+        <scan>
+          <horizontal>
+            <samples>360</samples>
+            <resolution>1</resolution>
+            <min_angle>-3.14159</min_angle>
+            <max_angle>3.14159</max_angle>
+          </horizontal>
+        </scan>
+        <range>
+          <min>0.1</min>
+          <max>100.0</max>
+          <resolution>0.03</resolution>
+        </range>
+      </ray>
+      <plugin name="lidar_ros" filename="libgazebo_ros_ray_sensor.so">
+        <ros>
+          <namespace>/</namespace>
+          <remapping>~/out:=scan</remapping>
+        </ros>
+        <output_type>sensor_msgs/LaserScan</output_type>
+        <frame_name>lidar_link</frame_name>
+      </plugin>
+    </sensor>
+  </gazebo>
+
+</robot>

@@ -1,0 +1,36 @@
+# --- ROS2 / colcon build artifacts (machine-specific, NEVER commit) ---
+robotaksi_ws/build/
+robotaksi_ws/install/
+robotaksi_ws/log/
+**/build/
+**/install/
+**/log/
+
+# --- Python ---
+__pycache__/
+*.pyc
+*.pyo
+
+# --- Gazebo / simulation runtime junk ---
+*.log
+*.gazebo.log
+/.gazebo/
+
+# --- Video / large media drafts ---
+*.mp4
+*.mkv
+*.mov
+!docs/final_demo.mp4
+
+# --- Docker ---
+*.tar
+
+# --- OS / editor noise ---
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# --- Local env overrides ---
+.env
