@@ -12,9 +12,9 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /robotaksi_ws
-
 SHELL ["/bin/bash", "-c"]
-
-RUN echo "source /opt/ros/foxy/setup.bash" >> ~/.bashrc
+RUN echo "source /opt/ros/foxy/setup.bash" >> ~/.bashrc && \
+    echo "if [ -f /robotaksi_ws/install/setup.bash ]; then source /robotaksi_ws/install/setup.bash; fi" >> ~/.bashrc && \
+    echo "export PS1='\[\033[1;32m\](robotaksi)\[\033[0m\] \w \$ '" >> ~/.bashrc
 
 CMD ["bash"]
