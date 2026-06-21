@@ -39,21 +39,21 @@ Aynı laptop'ta ikinci bir terminal açmak istersen (örneğin bir terminalde Ga
 make exec
 ```
 
-## 3. Workspace'i Build Etme
+## 3. Workspace'i Build Etme ve Çalıştırma
 
-Kod çektikten (`git pull`) sonra veya yeni dosya ekledikten sonra, **container
-içindeyken**:
-
-```bash
-colcon build --symlink-install
-source install/setup.bash
-```
-
-Veya container dışından (host terminalinden), container zaten çalışıyorsa:
+Kod çektikten (`git pull`) sonra veya yeni dosya ekledikten sonra, **host
+terminalinden** (container `make run` ile zaten açık olmalı):
 
 ```bash
-make colcon
+make colcon          # sadece build et, hicbir sey baslatma
+make sim             # build + Gazebo simulasyonunu baslat (TEK KOMUT)
+make control         # build + waypoint controller'i baslat (TEK KOMUT, ayri terminalde)
+make check           # hizli saglik kontrolu: aktif topic listesini gosterir
 ```
+
+`make sim` ve `make control` otomatik olarak build edip source'lar — artik
+`colcon build && source install/setup.bash && ros2 launch ...` yazmaniza
+gerek yok.
 
 ## 4. Çalışmayı Bitirme
 
@@ -82,26 +82,54 @@ Her laptop kendi bağımsız container'ını çalıştırdığı için, entegras
 
 ```
 robotaksi_ws/
-├── Makefile              <- docker build/run/exec/colcon kısayolları
+├── Makefile              <- docker build/run/exec/colcon/sim/control kisayollari
 ├── docker/
 │   └── Dockerfile
 ├── README.md
 ├── .gitignore
 └── src/
-    ├── robotaksi_world/          <- Kaptan: Gazebo dünyası + araç spawn
-    ├── robotaksi_description/    <- Kaptan: BEE1 URDF (ölçüler + sensör konumları)
-    ├── robotaksi_control/        <- Üye-5: waypoint controller + CAN bridge stub
-    └── robotaksi_localization/   <- Üye-3: odometry relay (EKF placeholder)
+    ├── robotaksi_world/          <- Kaptan: Gazebo dunyasi, parkur geometrisi, engeller
+    ├── robotaksi_description/    <- Uye-5: BEE1 URDF (gercek olculer + gorsel model)
+    ├── robotaksi_control/        <- Uye-5: waypoint controller + CAN bridge stub
+    ├── robotaksi_localization/   <- Uye-3: odometry relay (EKF placeholder)
+    └── robotaksi_planning/       <- Uye-4: statik engel sakinma mantigi (YENI, henuz olusturulmadi)
 ```
+
+`robotaksi_planning` henuz olusturulmadi. Uye-4 su komutla baslatabilir:
+
+```bash
+ros2 pkg create --build-type ament_python robotaksi_planning --dependencies rclpy sensor_msgs std_msgs
+```
+
+## Gece Görev Dağılımı
+
+| Kişi | Görev | Bağımlılık |
+|---|---|---|
+| Kaptan | Parkur geometrisini gerçek yarışma pistine yaklaştır, 2. görev noktası ekle, en az 1 statik engel ekle | Yok, bağımsız |
+| Üye-5 | BEE1 görsel modelini iyileştir, `can_bridge_stub.py` yaz, waypoint listesini güncelle | Kaptan'ın parkur koordinatları (son adım için) |
+| Üye-3 | `odom_relay_node.py` yaz (`/odom` → `/robotaksi/odom`) | Yok, sahte/dummy `/odom` ile bağımsız test edilebilir |
+| Üye-4 | `robotaksi_planning` paketini oluştur, `/scan`'i dinleyip `/engel_durumu` yayınlayan node yaz | Yok, sahte `/scan` ile bağımsız test edilebilir |
+| Üye-1, Üye-2 | Bu gece beklemede (ML/algılama işi sonraki aşamaya bırakıldı) | — |
 
 ## Topic Sözleşmesi (Kod yazmadan önce bunu değiştirmeyin)
 
-| Topic | Tip | Sahibi |
-|---|---|---|
-| `/odom` | `nav_msgs/msg/Odometry` | Gazebo plugin → Üye-3 relay eder |
-| `/cmd_vel` | `geometry_msgs/msg/Twist` | Üye-5 yayınlar |
-| `/scan` | `sensor_msgs/msg/LaserScan` | Kaptan'ın lidar plugin'i |
-| `/beemobs/*` (stub) | `can_bridge_stub.py` içinde tanımlı | Üye-5, `/cmd_vel`'den türetir |
+| Topic | Tip | Yayınlayan | Dinleyen | Durum |
+|---|---|---|---|---|
+| `/odom` | `nav_msgs/msg/Odometry` | Gazebo diff-drive plugin | Üye-3, waypoint_controller | ✅ Çalışıyor |
+| `/cmd_vel` | `geometry_msgs/msg/Twist` | waypoint_controller | Gazebo diff-drive plugin, can_bridge_stub | ✅ Çalışıyor |
+| `/scan` | `sensor_msgs/msg/LaserScan` | Gazebo lidar plugin | Üye-4 (obstacle_avoidance_node) | ✅ Çalışıyor |
+| `/robotaksi/odom` | `nav_msgs/msg/Odometry` | Üye-3 (odom_relay_node) | (gelecekte: mission node) | 🔲 Yazılacak |
+| `/engel_durumu` | `std_msgs/msg/Bool` | Üye-4 (obstacle_avoidance_node) | waypoint_controller | 🔲 Yazılacak |
+| `/engel_mesafesi` | `std_msgs/msg/Float32` | Üye-4 (obstacle_avoidance_node) | waypoint_controller (opsiyonel) | 🔲 Yazılacak |
+| `/beemobs/AUTONOMOUS_SteeringMot_Control` | `std_msgs/msg/Int32` (PWM 0-255) | Üye-5 (can_bridge_stub) | — (rapor kanıtı, gerçek CAN yok) | 🔲 Yazılacak |
+| `/beemobs/RC_THRT_DATA` | `std_msgs/msg/Int32` (50-250) | Üye-5 (can_bridge_stub) | — | 🔲 Yazılacak |
+
+**Üye-4 için not:** `/engel_durumu`'yu test ederken gerçek lidar koduna gerek
+yok — terminalden manuel yayınlayıp waypoint_controller'in tepkisini test
+edebilirsin:
+```bash
+ros2 topic pub /engel_durumu std_msgs/msg/Bool "data: true"
+```
 
 Bir topic adını veya tipini değiştirmeniz gerekiyorsa, push etmeden önce takıma
 haber verin — aksi halde başkasının node'u sessizce çalışmaz hale gelir.
