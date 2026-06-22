@@ -25,12 +25,19 @@ class WaypointController(Node):
     def __init__(self):
         super().__init__('waypoint_controller')
 
-        # ===== Sabit waypoint listesi (pist.world'deki isaretcilerle eslesir) =====
-        # (x, y) - metre, dunya/odom cercevesinde
+        # ===== Yeni Sabit Waypoint Listesi (pist.world topolojisiyle uyumlu) =====
+        # (x, y) - metre, dunya/odom cercevesinde centerline takipli rota.
         self.waypoints = [
-            (8.0, 0.0),    # gorev_noktasi_1 (yolcu alma)
-            (15.0, 0.0),   # park_giris_noktasi
-            (18.0, 0.0),   # park_alani merkezi
+            (5.00, 23.975),    # 1. Gorev Noktasi (Yolcu Alma / Yesil Kutu)
+            (12.04, 23.975),   # Kolon 1 & Satir 12 Kesisimi (Gecis Noktasi)
+            (20.72, 23.975),   # Kolon 2 & Satir 12 Kesisimi (Gorev 2 oncesi kesisim)
+            (20.72, 25.50),    # 2. Gorev Noktasi (Gorev Kutusu - hafif kuzeyde)
+            (20.72, 23.975),   # Kolon 2 kesisimine geri donus
+            (30.065, 23.975),  # Kolon 3 & Satir 12 Kesisimi (B4_TALL engelinden kacis baslangici)
+            (30.065, 12.425),  # Kolon 3 uzerinden alt yola inis (Gecis Waypoint'i)
+            (39.50, 12.425),   # Alt yol uzerinden sag tarafa ilerleme (Park hiza noktasi)
+            (39.50, 24.745),   # park_giris_noktasi (Park Alani Giris Noktasi)
+            (40.60, 24.70)     # park_slot_3 (Girisle tam hizalanmis nihai park cebi)
         ]
         self.current_wp_idx = 0
 
@@ -141,6 +148,7 @@ def main(args=None):
         pass
     finally:
         node.destroy_node()
+        node.get_logger().info('Waypoint controller kapatildi.')
         rclpy.shutdown()
 
 
