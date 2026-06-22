@@ -6,6 +6,9 @@
   <xacro:property name="dingil_mesafesi" value="1.860"/>
   <xacro:property name="govde_z_offset" value="0.45"/>   <xacro:property name="tekerlek_yaricap" value="0.25"/>
   <xacro:property name="tekerlek_genislik" value="0.18"/>
+  <xacro:property name="kasa_uzunluk" value="1.2"/> 
+  <xacro:property name="kasa_genislik" value="${govde_genislik}"/>
+  <xacro:property name="kasa_yukseklik" value="1.2"/>
 
   <material name="beyaz"><color rgba="0.95 0.95 0.95 1"/></material>
   <material name="siyah"><color rgba="0.05 0.05 0.05 1"/></material>
@@ -30,7 +33,37 @@
     </inertial>
   </link>
 
+  <link name="kasa_link">
+    <visual>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${kasa_uzunluk} ${kasa_genislik} ${kasa_yukseklik}"/>
+      </geometry>
+      <material name="beyaz"/>
+    </visual>
+    <collision>
+      <origin xyz="0 0 0" rpy="0 0 0"/>
+      <geometry>
+        <box size="${kasa_uzunluk} ${kasa_genislik} ${kasa_yukseklik}"/>
+      </geometry>
+    </collision>
+    <inertial>
+      <mass value="40.0"/> 
+      <inertia 
+        ixx="${40.0 * (kasa_genislik * kasa_genislik + kasa_yukseklik * kasa_yukseklik) / 12.0}" 
+        ixy="0" 
+        ixz="0" 
+        iyy="${40.0 * (kasa_uzunluk * kasa_uzunluk + kasa_yukseklik * kasa_yukseklik) / 12.0}" 
+        iyz="0" 
+        izz="${40.0 * (kasa_genislik * kasa_genislik + kasa_uzunluk * kasa_uzunluk) / 12.0}"/>
+    </inertial>
+  </link>
 
+  <joint name="kasa_joint" type="fixed">
+    <parent link="base_link"/>
+    <child link="kasa_link"/>
+    <origin xyz="-${(govde_uzunluk/2)-(kasa_uzunluk/2)} 0 ${(govde_yukseklik/2)+(kasa_yukseklik/2)-0.5}"/>
+  </joint>
 
   <link name="base_footprint"/>
   <joint name="base_footprint_joint" type="fixed">
@@ -146,6 +179,10 @@
       <publish_odom_tf>true</publish_odom_tf>
       <publish_wheel_tf>true</publish_wheel_tf>
     </plugin>
+  </gazebo>
+
+  <gazebo reference="kasa_link">
+    <material>Gazebo/White</material>
   </gazebo>
 
   <gazebo reference="lidar_link">
