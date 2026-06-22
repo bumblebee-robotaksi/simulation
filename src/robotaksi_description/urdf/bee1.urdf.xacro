@@ -30,11 +30,20 @@
     </inertial>
   </link>
 
+
+
   <link name="base_footprint"/>
   <joint name="base_footprint_joint" type="fixed">
     <parent link="base_footprint"/>
     <child link="base_link"/>
     <origin xyz="0 0 ${govde_z_offset + govde_yukseklik/2}" rpy="0 0 0"/>
+  </joint>
+
+  <link name="front_aks"/>
+  <joint name="front_aks_joint" type="fixed">
+    <parent link="base_footprint"/>
+    <child link="front_aks"/>
+    <origin xyz="0.96 0 0" rpy="0 0 0"/>
   </joint>
 
   <xacro:macro name="tekerlek" params="ad x_ofset y_ofset">
@@ -65,10 +74,10 @@
     </joint>
   </xacro:macro>
 
-  <xacro:tekerlek ad="tekerlek_on_sol"   x_ofset="${dingil_mesafesi/2}"  y_ofset="${govde_genislik/2 + 0.08}"/>
-  <xacro:tekerlek ad="tekerlek_on_sag"   x_ofset="${dingil_mesafesi/2}"  y_ofset="-${govde_genislik/2 + 0.08}"/>
-  <xacro:tekerlek ad="tekerlek_arka_sol" x_ofset="-${dingil_mesafesi/2}" y_ofset="${govde_genislik/2 + 0.08}"/>
-  <xacro:tekerlek ad="tekerlek_arka_sag" x_ofset="-${dingil_mesafesi/2}" y_ofset="-${govde_genislik/2 + 0.08}"/>
+  <xacro:tekerlek ad="tekerlek_on_sol"   x_ofset="0.96"  y_ofset="0.443"/>
+  <xacro:tekerlek ad="tekerlek_on_sag"   x_ofset="0.96"  y_ofset="-0.443"/>
+  <xacro:tekerlek ad="tekerlek_arka_sol" x_ofset="-0.9" y_ofset="0.425"/>
+  <xacro:tekerlek ad="tekerlek_arka_sag" x_ofset="-0.9" y_ofset="-0.425"/>
 
   <link name="lidar_link">
     <visual>
@@ -77,9 +86,9 @@
     </visual>
   </link>
   <joint name="lidar_joint" type="fixed">
-    <parent link="base_link"/>
+    <parent link="front_aks"/>
     <child link="lidar_link"/>
-    <origin xyz="-0.177 0 ${govde_yukseklik/2 + 0.1}" rpy="0 0 0"/>
+    <origin xyz="-0.177 0 0.62" rpy="0 0 0"/>
   </joint>
 
   <link name="kamera_sag_link">
@@ -89,9 +98,9 @@
     </visual>
   </link>
   <joint name="kamera_sag_joint" type="fixed">
-    <parent link="base_link"/>
+    <parent link="front_aks"/>
     <child link="kamera_sag_link"/>
-    <origin xyz="0.620 -0.060 ${govde_yukseklik/2}" rpy="0 0 0"/>
+    <origin xyz="-0.205 0.06 0.685" rpy="0 0 0"/>
   </joint>
 
   <link name="kamera_sol_link">
@@ -101,9 +110,9 @@
     </visual>
   </link>
   <joint name="kamera_sol_joint" type="fixed">
-    <parent link="base_link"/>
+    <parent link="front_aks"/>
     <child link="kamera_sol_link"/>
-    <origin xyz="0.685 0.060 ${govde_yukseklik/2}" rpy="0 0 0"/>
+    <origin xyz="-0.205 -0.06 0.685" rpy="0 0 0"/>
   </joint>
 
   <link name="gps_imu_link">
@@ -113,9 +122,9 @@
     </visual>
   </link>
   <joint name="gps_imu_joint" type="fixed">
-    <parent link="base_link"/>
+    <parent link="front_aks"/>
     <child link="gps_imu_link"/>
-    <origin xyz="1.440 0 ${govde_yukseklik/2 + 0.1}" rpy="0 0 0"/>
+    <origin xyz="1.44 0 1.39" rpy="0 0 0"/>
   </joint>
 
   <gazebo>
