@@ -79,6 +79,38 @@
     <origin xyz="0.96 0 0" rpy="0 0 0"/>
   </joint>
 
+  <xacro:macro name="dikiz_aynasi" params="ad y_ofset">
+    <link name="${ad}">
+      <visual>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.08 0.18 0.12"/>
+        </geometry>
+        <material name="siyah"/>
+      </visual>
+      <collision>
+        <origin xyz="0 0 0" rpy="0 0 0"/>
+        <geometry>
+          <box size="0.08 0.18 0.12"/>
+        </geometry>
+      </collision>
+      <inertial>
+        <mass value="1.0"/>  <inertia ixx="0.003" ixy="0" ixz="0" iyy="0.003" iyz="0" izz="0.003" />
+      </inertial>
+    </link>
+    <joint name="${ad}_joint" type="fixed">
+      <parent link="base_link"/>
+      <child link="${ad}"/>
+      <origin xyz="0.4 ${y_ofset * (govde_genislik / 2) + (0.18 / 2)} 0.3" rpy="0 0 0"/>
+    </joint>
+    <gazebo reference="${ad}">
+      <material>Gazebo/Black</material>
+    </gazebo>
+  </xacro:macro>
+
+  <xacro:dikiz_aynasi ad="dikiz_sol"   y_ofset="1.13" />
+  <xacro:dikiz_aynasi ad="dikiz_sag"   y_ofset="0.79" />
+
   <xacro:macro name="tekerlek" params="ad x_ofset y_ofset">
     <link name="${ad}">
       <visual>
@@ -135,6 +167,12 @@
     <child link="kamera_sag_link"/>
     <origin xyz="-0.205 0.06 0.685" rpy="0 0 0"/>
   </joint>
+  <link name="kamera_sag_link_optical"/>
+  <joint name="kamera_sag_link_optical_joint">
+    <parent link="kamera_sag_link"/>
+    <child link="kamera_sag_link_optical"/>
+    <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+  </joint>
 
   <link name="kamera_sol_link">
     <visual>
@@ -147,6 +185,13 @@
     <child link="kamera_sol_link"/>
     <origin xyz="-0.205 -0.06 0.685" rpy="0 0 0"/>
   </joint>
+  <link name="kamera_sol_link_optical"/>
+  <joint name="kamera_sol_link_optical_joint">
+    <parent link="kamera_sol_link"/>
+    <child link="kamera_sol_link_optical"/>
+    <origin xyz="0 0 0" rpy="-1.5708 0 -1.5708"/>
+  </joint>
+
 
   <link name="gps_imu_link">
     <visual>
@@ -215,5 +260,7 @@
       </plugin>
     </sensor>
   </gazebo>
+
+
 
 </robot>
