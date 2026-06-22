@@ -41,6 +41,12 @@ class WaypointController(Node):
         ]
         self.current_wp_idx = 0
 
+        # ===== Fallback Güvenlik Bayrakları =====
+        self.external_plan_locked = False
+        self.plan_sub = self.create_subscription(
+            Path, '/planlanan_rota', self.external_plan_callback, 10
+        )
+
         # ===== Kontrol parametreleri =====
         self.hedef_tolerans = 0.5       # metre, waypoint'e "ulasildi" sayilma esigi
         self.max_linear_hiz = 1.0       # m/s
@@ -64,6 +70,25 @@ class WaypointController(Node):
 
         self.get_logger().info(
             f'Waypoint controller baslatildi. {len(self.waypoints)} waypoint yuklendi.'
+        )
+
+    def external_plan_callback(self, msg: Path):
+        # Eğer A* planı daha önce başarıyla alındıysa, yeni gelenleri reddet (Sonsuz döngü koruması)
+        if self.external_plan_locked or len(msg.poses) == 0:
+            return
+
+        yeni_liste = []
+        for p in msg.poses:
+            yeni_liste.append((p.pose.position.x, p.pose.position.y))
+
+        self.waypoints = yeni_liste
+        self.current_wp_idx = 0
+        self.gorev_tamamlandi = False
+        self.external_plan_locked = True
+        
+        self.get_logger().info(
+            f"*** DIŞ ROTA ALGILANDI! Hardcoded liste devre dışı. "
+            f"A* algoritmasının ürettiği {len(self.waypoints)} hedefe kilitlenildi. ***"
         )
 
     def odom_callback(self, msg: Odometry):

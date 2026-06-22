@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'waypoint_controller = robotaksi_control.waypoint_controller:main',
+            'planner_node = robotaksi_planning.planner_node:main',
         ],
     },
 )
