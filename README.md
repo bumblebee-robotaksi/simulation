@@ -130,7 +130,6 @@ edebilirsin:
 ```bash
 ros2 topic pub /engel_durumu std_msgs/msg/Bool "data: true"
 ```
-
 Bir topic adını veya tipini değiştirmeniz gerekiyorsa, push etmeden önce takıma
 haber verin — aksi halde başkasının node'u sessizce çalışmaz hale gelir.
 
