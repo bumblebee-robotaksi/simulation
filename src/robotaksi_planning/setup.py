@@ -20,6 +20,7 @@ setup(
     tests_require=['pytest'],
     entry_points={
         'console_scripts': [
+            'planner_node = robotaksi_planning.planner_node:main',
         ],
     },
 )

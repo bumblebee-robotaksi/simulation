@@ -16,6 +16,8 @@ help:
 	@echo "  make graph    -> ROS Agini gorsel olarak cizer (Baglantilari gormek icin HARIKA)"
 	@echo "  make stop     -> Calisan container'i durdurur"
 	@echo "  make clean    -> Image'i ve dangling layer'lari siler"
+	@echo "  make plan     -> Build + A* rota planlayiciyi baslatir (TEK KOMUT)"
+	@echo "  make stack    -> Sim + Planlayici + Kontrolcuyu sirayla tek seferde kaldirir (GOD MODE)"
 
 build:
 	docker build -t $(IMAGE_NAME) -f docker/Dockerfile .
@@ -59,3 +61,18 @@ stop:
 clean:
 	docker rmi $(IMAGE_NAME) || true
 	docker image prune -f
+
+# TEK KOMUT: build + source + A* Rota Planlayiciyi baslat
+plan:
+	docker exec -it $(CONTAINER_NAME) bash -c "source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && colcon build --symlink-install --packages-select robotaksi_planning && source install/setup.bash && ros2 run robotaksi_planning planner_node"
+
+# MASTER KOMUT: Tum yigini (Simulasyon, Planlayici, Kontrolcu) tek seferde arkaplanda kaldirir
+stack:
+	@echo ">>> 1/3: Gazebo Simulasyonu baslatiliyor..."
+	@docker exec -d $(CONTAINER_NAME) bash -c "source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && colcon build --symlink-install --packages-select robotaksi_world robotaksi_description && source install/setup.bash && ros2 launch robotaksi_world sim.launch.py"
+	@sleep 5
+	@echo ">>> 2/3: A* Rota Planlayici arkaplanda baslatiliyor..."
+	@docker exec -d $(CONTAINER_NAME) bash -c "source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && source install/setup.bash && ros2 run robotaksi_planning planner_node"
+	@sleep 2
+	@echo ">>> 3/3: Waypoint Kontrolcu terminale baglanarak baslatiliyor..."
+	@docker exec -it $(CONTAINER_NAME) bash -c "source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && source install/setup.bash && ros2 run robotaksi_control waypoint_controller"
