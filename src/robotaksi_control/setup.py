@@ -25,6 +25,7 @@ setup(
     entry_points={
         'console_scripts': [
             'waypoint_controller = robotaksi_control.waypoint_controller:main',
+            'can_bridge_stub = robotaksi_control.can_bridge_stub:main',
         ],
     },
 )
