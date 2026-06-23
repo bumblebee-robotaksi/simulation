@@ -27,23 +27,20 @@ class WaypointController(Node):
         super().__init__('waypoint_controller')
 
         self.estop_start_time = None
-        self.ESTOP_TIMEOUT = 4.0  # seconds before we override and nudge forward
+        self.ESTOP_TIMEOUT = 2.0  # seconds before we override and nudge forward
 
         # ===== Yeni Sabit Waypoint Listesi (pist.world topolojisiyle uyumlu) =====
         # (x, y) - metre, dunya/odom cercevesinde centerline takipli rota.
         self.waypoints = [
-            (5.00, 23.975),    # 1. Gorev Noktasi (Yolcu Alma / Yesil Kutu)
-            (12.04, 23.975),   # Kolon 1 & Satir 12 Kesisimi (Gecis Noktasi)
-            (20.72, 23.975),   # Kolon 2 & Satir 12 Kesisimi (Gorev 2 oncesi kesisim)
-            (20.72, 25.50),    # 2. Gorev Noktasi (Gorev Kutusu - hafif kuzeyde)
-            (20.72, 23.975),   # Kolon 2 kesisimine geri donus
-            (30.065, 23.975),  # Kolon 3 & Satir 12 Kesisimi (B4_TALL engelinden kacis baslangici)
-            (30.065, 12.425),  # Kolon 3 uzerinden alt yola inis (Gecis Waypoint'i)
-            (39.50, 12.425),   # Alt yol uzerinden sag tarafa ilerleme (Park hiza noktasi)
-            (39.50, 24.745),   # park_giris_noktasi (Park Alani Giris Noktasi)
-            (40.60, 24.70)     # park_slot_3 (Girisle tam hizalanmis nihai park cebi)
+            (10.0,  0.0),   # ilk ara nokta
+            (18.0,  0.0),   # engel oncesi yaklasma
+            (20.0,  2.0),   # sola don — engelden once (SAFE: 2.0 < 2.97)
+            (30.0,  2.0),   # engeli tamamen gec
+            (35.0,  0.0),   # merkeze geri don
+            (50.0,  0.0),   # hedef
         ]
         self.current_wp_idx = 0
+        self.skip_initial_waypoints = True
 
         # ===== Fallback Güvenlik Bayrakları =====
         self.external_plan_locked = False
@@ -55,7 +52,7 @@ class WaypointController(Node):
         self.hedef_tolerans = 0.5       # metre, waypoint'e "ulasildi" sayilma esigi
         self.max_linear_hiz = 1.0       # m/s
         self.max_angular_hiz = 1.0      # rad/s
-        self.aci_kazanci = 1.5          # P-kontrolcu kazanci (heading error -> angular vel)
+        self.aci_kazanci = 1.0          # P-kontrolcu kazanci (heading error -> angular vel)
         self.durma_aci_esigi = 1.2      # rad, bu acidan fazla hatada once sadece don, ilerleme
 
         # ===== Durum =====
@@ -91,6 +88,10 @@ class WaypointController(Node):
         # Eğer A* planı daha önce başarıyla alındıysa, yeni gelenleri reddet (Sonsuz döngü koruması)
         if self.external_plan_locked or len(msg.poses) == 0:
             return
+        
+        if len(msg.poses) < 3:
+            self.get_logger().warn("Tek noktalı plan reddedildi, hardcoded liste kullanılıyor.")
+            return
 
         yeni_liste = []
         for p in msg.poses:
@@ -117,41 +118,62 @@ class WaypointController(Node):
         self.guncel_yaw = math.atan2(siny_cosp, cosy_cosp)
 
     def ped_callback(self, msg: Bool):
+        prev = self.pedestrian_detected
         self.pedestrian_detected = msg.data
+        if prev and not self.pedestrian_detected:
+            self.estop_start_time = None
 
     def lidar_stop_callback(self, msg: Bool):
+        prev = self.lidar_emergency
         self.lidar_emergency = msg.data
+        # Engel kalktığında timer'ı sıfırla
+        if prev and not self.lidar_emergency:
+            self.estop_start_time = None
 
     def kontrol_dongusu(self):
+
+        if self.skip_initial_waypoints and self.guncel_x != 0.0:
+            while self.current_wp_idx < len(self.waypoints):
+                hx, hy = self.waypoints[self.current_wp_idx]
+                dx = hx - self.guncel_x
+                dy = hy - self.guncel_y
+                if math.sqrt(dx*dx + dy*dy) > self.hedef_tolerans:
+                    break
+                self.current_wp_idx += 1
+            self.skip_initial_waypoints = False
 
         if self.pedestrian_detected or self.lidar_emergency:
             now = self.get_clock().now().nanoseconds / 1e9
             if self.estop_start_time is None:
                 self.estop_start_time = now
-            
+
             elapsed = now - self.estop_start_time
-            
+
             if elapsed > self.ESTOP_TIMEOUT:
-                # Uzun suredir takildik, yavasce ileri zorluyoruz
-                cmd = Twist()
-                cmd.linear.x = 0.2
-                cmd.angular.z = 0.0
-                self.cmd_pub.publish(cmd)
-                self.get_logger().warn(
-                    f"E-STOP {elapsed:.1f}s suredir aktif, engelden kacma denemesi!",
-                    throttle_duration_sec=1.0
-                )
+                # Nudge blindly yerine: bir sonraki waypoint'e dogru don ve ilerle
+                if self.current_wp_idx < len(self.waypoints):
+                    hedef_x, hedef_y = self.waypoints[self.current_wp_idx]
+                    dx = hedef_x - self.guncel_x
+                    dy = hedef_y - self.guncel_y
+                    hedef_aci = math.atan2(dy, dx)
+                    aci_hata = math.atan2(
+                        math.sin(hedef_aci - self.guncel_yaw),
+                        math.cos(hedef_aci - self.guncel_yaw)
+                    )
+                    cmd = Twist()
+                    cmd.linear.x = 0.3
+                    cmd.angular.z = self.clamp(
+                        self.aci_kazanci * aci_hata,
+                        -self.max_angular_hiz, self.max_angular_hiz
+                    )
+                    self.cmd_pub.publish(cmd)
+                else:
+                    self.yayinla_dur()
             else:
                 self.yayinla_dur()
-                self.get_logger().warn(
-                    f"!!! E-STOP AKTİF! [Yaya: {self.pedestrian_detected} | LiDAR Engel: {self.lidar_emergency}]",
-                    throttle_duration_sec=1.0
-                )
             return
-
-        if self.gorev_tamamlandi:
-            self.yayinla_dur()
-            return
+        
+        self.estop_start_time = None
 
         if self.current_wp_idx >= len(self.waypoints):
             self.gorev_tamamlandi = True

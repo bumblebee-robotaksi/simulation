@@ -26,7 +26,7 @@ class InferenceNode(Node):
         self.SIGN_IDS = set(range(19)) 
         
         self.H_FOV = math.radians(60)
-        self.STOP_DISTANCE = 0.8
+        self.STOP_DISTANCE = 1.5
         self.bridge = CvBridge()
         
         self.latest_frame = None
@@ -36,7 +36,8 @@ class InferenceNode(Node):
         self.lock = threading.Lock()
         
         sensor_qos = QoSProfile(reliability=ReliabilityPolicy.BEST_EFFORT,history=HistoryPolicy.KEEP_LAST,depth=10)
-        
+        scan_qos = QoSProfile(reliability=ReliabilityPolicy.RELIABLE, history=HistoryPolicy.KEEP_LAST, depth=10)
+
         self.objects_pub = self.create_publisher(String, '/objects', 10)
         self.ped_pub = self.create_publisher(Bool, '/pedestrian_detected', 10)
         
@@ -50,7 +51,7 @@ class InferenceNode(Node):
         
         self.create_subscription(Image, '/camera/image_raw', self.image_callback, sensor_qos)
         self.create_subscription(Image, '/seg_mask', self.mask_callback, sensor_qos)
-        self.create_subscription(LaserScan, '/scan', self.scan_callback, sensor_qos)
+        self.create_subscription(LaserScan, '/scan', self.scan_callback, scan_qos)
         
         self.thread = threading.Thread(target=self.infer_loop, daemon=True)
         self.thread.start()
@@ -69,7 +70,7 @@ class InferenceNode(Node):
 
         front_indices = range(front_center - half_window, front_center + half_window)
         front = [ranges[i] for i in front_indices]
-        valid = [r for r in front if msg.range_min < r < msg.range_max]
+        valid = [r for r in front if 0.7 < r < msg.range_max]
 
         with self.lock:
             self.latest_scan = msg

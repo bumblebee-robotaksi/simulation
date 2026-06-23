@@ -45,6 +45,7 @@ colcon:
 
 # TEK KOMUT: build + source + Gazebo'yu baslat (ayri terminalde, container zaten 'make run' ile acik olmali)
 sim:
+	-@docker exec $(CONTAINER_NAME) bash -c "pkill -9 -f gzserver; pkill -9 -f gzclient; pkill -9 -f gazebo; sleep 1" 2>/dev/null || true
 	docker exec -it $(CONTAINER_NAME) bash -c "source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && colcon build --symlink-install --packages-select robotaksi_world robotaksi_description && source install/setup.bash && ros2 launch robotaksi_world sim.launch.py"
 
 # TEK KOMUT: build + source + waypoint controller'i baslat
@@ -70,41 +71,74 @@ clean:
 plan:
 	docker exec -it $(CONTAINER_NAME) bash -c "source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && colcon build --symlink-install --packages-select robotaksi_planning && source install/setup.bash && ros2 run robotaksi_planning planner_node"
 
-# MASTER KOMUT: Tum yigini (Simulasyon, Planlayici, Kontrolcu) tek seferde arkaplanda kaldirir
-stack:
-	@echo ">>> Onceki oturum temizleniyor..."
-	-@docker exec $(CONTAINER_NAME) bash -c "pkill -9 -f ros2; pkill -9 -f gzserver; pkill -9 -f gzclient; sleep 2"
-	@echo ">>> 1/3: Gazebo Simulasyonu baslatiliyor..."
-	@docker exec -d $(CONTAINER_NAME) bash -c "source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && colcon build --symlink-install --packages-select robotaksi_world robotaksi_description && source install/setup.bash && ros2 launch robotaksi_world sim.launch.py"
-	@sleep 7
-	@echo ">>> 2/3: A* Rota Planlayici arkaplanda baslatiliyor..."
-	@docker exec -d $(CONTAINER_NAME) bash -c "source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && source install/setup.bash && ros2 run robotaksi_planning planner_node"
-	@sleep 2
-	@echo ">>> 3/3: Waypoint Kontrolcu terminale baglanarak baslatiliyor..."
-	@docker exec -it $(CONTAINER_NAME) bash -c "source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && source install/setup.bash && ros2 run robotaksi_control waypoint_controller"
-
 # TEK KOMUT: build + source + YOLO/LiDAR Algi Node'unu baslat
 perceive:
 	@echo ">>> Bumblebee Algı Sistemi (YOLOv8 + LiDAR) Başlatılıyor..."
 	docker exec -it $(CONTAINER_NAME) bash -c "source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && colcon build --symlink-install --packages-select robotaksi_perception && source install/setup.bash && ros2 run robotaksi_perception inference_node"
 
+stack:
+	@echo ">>> Onceki oturum temizleniyor..."
+	-@docker exec $(CONTAINER_NAME) bash -c "pkill -9 -f ros2; pkill -9 -f gzserver; pkill -9 -f gzclient; sleep 2"
+	@echo ">>> 1/3: Gazebo + robot spawn baslatiliyor (arkaplanda)..."
+	@docker exec -d $(CONTAINER_NAME) bash -c \
+		"source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && \
+		colcon build --symlink-install --packages-select robotaksi_world robotaksi_description && \
+		source install/setup.bash && \
+		ros2 launch robotaksi_world sim.launch.py > /tmp/sim.log 2>&1"
+	@echo "          (Gazebo + spawn icin 20 saniye bekleniyor...)"
+	@sleep 20
+	@echo ">>> 2/3: A* Rota Planlayici arkaplanda baslatiliyor..."
+	@docker exec -d $(CONTAINER_NAME) bash -c \
+		"source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && \
+		source install/setup.bash && \
+		ros2 run robotaksi_planning planner_node > /tmp/planner.log 2>&1"
+	@sleep 3
+	@echo ">>> 3/3: Waypoint Kontrolcu terminale baglanarak baslatiliyor..."
+	@docker exec -it $(CONTAINER_NAME) bash -c \
+		"source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && \
+		source install/setup.bash && \
+		ros2 run robotaksi_control waypoint_controller"
+
 bumblebee:
 	@echo ">>> Onceki oturum temizleniyor..."
 	-@docker exec $(CONTAINER_NAME) bash -c "pkill -9 -f ros2; pkill -9 -f gzserver; pkill -9 -f gzclient; sleep 2"
-	@echo ">>> [1/4] Gazebo Evreni baslatiliyor..."
-	@docker exec -d $(CONTAINER_NAME) bash -c "source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && source install/setup.bash && ros2 launch robotaksi_world sim.launch.py"
-	@echo "          (Gazebo ve sensor topic'leri icin 10 saniye bekleniyor...)"
-	@sleep 10
+	@echo ">>> [1/4] Gazebo + robot spawn baslatiliyor (arkaplanda)..."
+	@docker exec -d $(CONTAINER_NAME) bash -c \
+		"source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && \
+		source install/setup.bash && \
+		ros2 launch robotaksi_world sim.launch.py > /tmp/sim.log 2>&1"
+	@echo "          (Gazebo, robot spawn ve sensor topic'leri icin 20 saniye bekleniyor...)"
+	@sleep 20
 	@echo ">>> [2/4] Bumblebee Algi Beyni arkaplanda uyaniyor..."
-	@docker exec -d $(CONTAINER_NAME) bash -c "source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && source install/setup.bash && ros2 run robotaksi_perception inference_node"
+	@docker exec -d $(CONTAINER_NAME) bash -c \
+		"source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && \
+		source install/setup.bash && \
+		ros2 run robotaksi_perception inference_node > /tmp/perception.log 2>&1"
 	@sleep 4
 	@echo ">>> [3/4] A* Planlayici haritayi yayinliyor..."
-	@docker exec -d $(CONTAINER_NAME) bash -c "source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && source install/setup.bash && ros2 run robotaksi_planning planner_node"
+	@docker exec -d $(CONTAINER_NAME) bash -c \
+		"source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && \
+		source install/setup.bash && \
+		ros2 run robotaksi_planning planner_node > /tmp/planner.log 2>&1"
 	@sleep 2
-	@echo ">>> [4/4] Waypoint Kontrolcu aktif! Arac hareket ediyor."
-	@docker exec -it $(CONTAINER_NAME) bash -c "source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && source install/setup.bash && ros2 run robotaksi_control waypoint_controller"
+	@echo ">>> [4/4] Waypoint Kontrolcu aktif!"
+	@docker exec -it $(CONTAINER_NAME) bash -c \
+		"source /opt/ros/foxy/setup.bash && cd /robotaksi_ws && \
+		source install/setup.bash && \
+		ros2 run robotaksi_control waypoint_controller"
 
 nuke:
 	@echo ">>> Sistem temizleniyor..."
-	-@docker exec -it $(CONTAINER_NAME) bash -c "pkill -9 -f ros2; pkill -9 -f gzserver; pkill -9 -f gzclient"
-	@echo ">>> Butun arkaplan ROS dugumlari temizlendi."
+	-@docker exec -it $(CONTAINER_NAME) bash -c "\
+		pkill -9 -f inference_node 2>/dev/null; \
+		pkill -9 -f waypoint_controller 2>/dev/null; \
+		pkill -9 -f planner_node 2>/dev/null; \
+		pkill -9 -f robot_state_publisher 2>/dev/null; \
+		pkill -9 -f spawn_entity 2>/dev/null; \
+		pkill -9 gzserver 2>/dev/null; \
+		pkill -9 gzclient 2>/dev/null; \
+		pkill -9 gazebo 2>/dev/null; \
+		pkill -9 -f 'ros2 launch' 2>/dev/null; \
+		pkill -9 -f 'ros2 run' 2>/dev/null; \
+		sleep 2" 2>/dev/null || true
+	@echo ">>> Temizlendi."

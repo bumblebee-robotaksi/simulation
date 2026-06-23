@@ -1,8 +1,9 @@
 import os
 from launch import LaunchDescription
-from launch.actions import ExecuteProcess
+from launch.actions import ExecuteProcess, TimerAction
 from launch_ros.actions import Node
 from launch.substitutions import Command
+from launch_ros.parameter_descriptions import ParameterValue
 from ament_index_python.packages import get_package_share_directory
 
 
@@ -13,11 +14,14 @@ def generate_launch_description():
     world_file = os.path.join(world_pkg, 'worlds', 'pist.world')
     xacro_file = os.path.join(desc_pkg, 'urdf', 'bee1.urdf.xacro')
 
-    robot_description = Command(['xacro ', xacro_file])
+    # ParameterValue(value_type=str) prevents yaml parsing the XML
+    robot_description = ParameterValue(
+        Command(['xacro ', xacro_file]),
+        value_type=str
+    )
 
     return LaunchDescription([
 
-        # Gazebo'yu pist.world ile baslat
         ExecuteProcess(
             cmd=['gazebo', '--verbose', world_file,
                  '-s', 'libgazebo_ros_init.so',
@@ -25,7 +29,6 @@ def generate_launch_description():
             output='screen'
         ),
 
-        # URDF'i robot_description parametresi olarak yayinla (TF agaci icin gerekli)
         Node(
             package='robot_state_publisher',
             executable='robot_state_publisher',
@@ -34,17 +37,19 @@ def generate_launch_description():
             parameters=[{'robot_description': robot_description}]
         ),
 
-        # Araci Gazebo'ya spawn et
-        Node(
-            package='gazebo_ros',
-            executable='spawn_entity.py',
-            arguments=['-topic', 'robot_description',
-           '-entity', 'bee1',
-           '-x', '2.0', '-y', '0.0', '-z', '0.3',
-           '-Y', '0.0'],  # facing +X
-            # arguments=['-topic', 'robot_description',
-            #            '-entity', 'bee1',
-            #            '-x', '5.0', '-y', '23.975', '-z', '0.1'],
-            output='screen'
+        TimerAction(
+            period=5.0,
+            actions=[
+                Node(
+                    package='gazebo_ros',
+                    executable='spawn_entity.py',
+                    arguments=[
+                        '-topic', 'robot_description',
+                        '-entity', 'bee1',
+                        '-x', '2.0', '-y', '0.0', '-z', '0.5', '-Y', '0.0'
+                    ],
+                    output='screen'
+                ),
+            ]
         ),
     ])
