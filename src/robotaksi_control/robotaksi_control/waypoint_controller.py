@@ -18,12 +18,16 @@ import rclpy
 from rclpy.node import Node
 from geometry_msgs.msg import Twist
 from nav_msgs.msg import Odometry, Path
+from std_msgs.msg import Bool
 
 
 class WaypointController(Node):
 
     def __init__(self):
         super().__init__('waypoint_controller')
+
+        self.estop_start_time = None
+        self.ESTOP_TIMEOUT = 4.0  # seconds before we override and nudge forward
 
         # ===== Yeni Sabit Waypoint Listesi (pist.world topolojisiyle uyumlu) =====
         # (x, y) - metre, dunya/odom cercevesinde centerline takipli rota.
@@ -65,6 +69,17 @@ class WaypointController(Node):
             Odometry, '/odom', self.odom_callback, 10
         )
 
+        self.pedestrian_detected = False
+        self.lidar_emergency = False
+        self.estop_start_time = None
+
+        self.ped_sub = self.create_subscription(
+            Bool, '/pedestrian_detected', self.ped_callback, 10
+        )
+        self.lidar_stop_sub = self.create_subscription(
+            Bool, '/lidar_emergency_stop', self.lidar_stop_callback, 10
+        )
+
         # Kontrol dongusu: 10 Hz
         self.timer = self.create_timer(0.1, self.kontrol_dongusu)
 
@@ -101,7 +116,39 @@ class WaypointController(Node):
         cosy_cosp = 1.0 - 2.0 * (q.y * q.y + q.z * q.z)
         self.guncel_yaw = math.atan2(siny_cosp, cosy_cosp)
 
+    def ped_callback(self, msg: Bool):
+        self.pedestrian_detected = msg.data
+
+    def lidar_stop_callback(self, msg: Bool):
+        self.lidar_emergency = msg.data
+
     def kontrol_dongusu(self):
+
+        if self.pedestrian_detected or self.lidar_emergency:
+            now = self.get_clock().now().nanoseconds / 1e9
+            if self.estop_start_time is None:
+                self.estop_start_time = now
+            
+            elapsed = now - self.estop_start_time
+            
+            if elapsed > self.ESTOP_TIMEOUT:
+                # Uzun suredir takildik, yavasce ileri zorluyoruz
+                cmd = Twist()
+                cmd.linear.x = 0.2
+                cmd.angular.z = 0.0
+                self.cmd_pub.publish(cmd)
+                self.get_logger().warn(
+                    f"E-STOP {elapsed:.1f}s suredir aktif, engelden kacma denemesi!",
+                    throttle_duration_sec=1.0
+                )
+            else:
+                self.yayinla_dur()
+                self.get_logger().warn(
+                    f"!!! E-STOP AKTİF! [Yaya: {self.pedestrian_detected} | LiDAR Engel: {self.lidar_emergency}]",
+                    throttle_duration_sec=1.0
+                )
+            return
+
         if self.gorev_tamamlandi:
             self.yayinla_dur()
             return

@@ -125,14 +125,10 @@
         </geometry>
         <material name="siyah"/>
       </visual>
-      <collision>
-        <origin xyz="0 0 0" rpy="0 0 0"/>
-        <geometry>
-          <box size="0.17 0.18 0.12"/>
-        </geometry>
-      </collision>
+      <!-- collision removed: mirrors don't need physics collision -->
       <inertial>
-        <mass value="1.0"/>  <inertia ixx="0.003" ixy="0" ixz="0" iyy="0.003" iyz="0" izz="0.003" />
+        <mass value="1.0"/>
+        <inertia ixx="0.003" ixy="0" ixz="0" iyy="0.003" iyz="0" izz="0.003" />
       </inertial>
     </link>
     <joint name="${ad}_joint" type="fixed">
@@ -208,7 +204,7 @@
   <joint name="lidar_joint" type="fixed">
     <parent link="front_aks"/>
     <child link="lidar_link"/>
-    <origin xyz="-0.177 0 0.62" rpy="0 0 0"/>
+    <origin xyz="-0.177 0 1.5" rpy="0 0 0"/>
   </joint>
 
   <link name="kamera_sag_link">
@@ -325,7 +321,7 @@
           </horizontal>
         </scan>
         <range>
-          <min>0.1</min>
+          <min>0.7</min>
           <max>100.0</max>
           <resolution>0.03</resolution>
           <noise>

@@ -19,7 +19,8 @@ class AStarPlannerNode(Node):
         
         # TEKNOFEST Yarışma Görev Sırası: Başlangıç -> Görev 2 -> Park
         # (Araç zaten Görev 1 noktasında doğduğu için rota 1'den başlar)
-        self.mission_checkpoints = [1, 10, 12] 
+        # self.mission_checkpoints = [1, 10, 12]
+        self.mission_checkpoints = [1, 1]  # no-op, controller uses hardcoded list
         
         # 2 saniyede bir yayınla (Controller yakalasın diye latching mantığı)
         self.timer = self.create_timer(2.0, self.publish_master_plan)
